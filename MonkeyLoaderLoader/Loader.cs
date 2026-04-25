@@ -83,7 +83,6 @@ class MonkeyLoaderLoader
 {
 	private static readonly FileInfo _monkeyLoaderWrapperPath = RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? new("MonkeyLoaderWrapper.Linux.dll") : new("MonkeyLoaderWrapper.dll");
 	private static Assembly? _monkeyLoaderWrapperAsm;
-	private static MethodInfo? _resolveNativeLibraryMethod;
 	
 	private static void PreloadAssemblies()
 	{
@@ -126,7 +125,6 @@ class MonkeyLoaderLoader
 		try
 		{
 			var targetType = _monkeyLoaderWrapperAsm!.EntryPoint!.DeclaringType;
-			_resolveNativeLibraryMethod = AccessTools.Method(targetType, "ResolveNativeLibrary");
 			var targetMethod = AccessTools.GetDeclaredMethods(targetType).FirstOrDefault(m => m.ReturnType == typeof(Task) && m.Name == "Main");
 			harmony.Patch(AccessTools.AsyncMoveNext(targetMethod), transpiler: new(MonkeyLoaderWrapperPatch.Transpiler));
 
@@ -156,14 +154,6 @@ class MonkeyLoaderLoader
 		{
 			Plugin.Log!.LogError($"Error occurred in MonkeyLoader code.");
 			throw;
-		}
-
-		var resolveNativeLibraryDelegate = (DllImportResolver)Delegate.CreateDelegate(typeof(DllImportResolver), _resolveNativeLibraryMethod);
-		foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
-		{
-			if (assembly.GetName().Name == "SoundFlow") continue;
-			if (assembly.GetName().Name == "SharpFont") continue;
-			NativeLibrary.SetDllImportResolver(assembly, resolveNativeLibraryDelegate);
 		}
 
 		Plugin.Log!.LogInfo("Done!");
