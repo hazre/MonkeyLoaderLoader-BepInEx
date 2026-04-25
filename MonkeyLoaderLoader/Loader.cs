@@ -83,17 +83,27 @@ class MonkeyLoaderLoader
 {
 	private static readonly FileInfo _monkeyLoaderWrapperPath = RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? new("MonkeyLoaderWrapper.Linux.dll") : new("MonkeyLoaderWrapper.dll");
 	private static Assembly? _monkeyLoaderWrapperAsm;
-	
+
+	private static AssemblyLoadContext LoadContext =>
+		global::BepInEx.Utility.LoadContext
+		?? AssemblyLoadContext.GetLoadContext(typeof(Plugin).Assembly)
+		?? AssemblyLoadContext.Default;
+
+	private static Assembly LoadFromBepInExContext(string assemblyPath)
+	{
+		return LoadContext.LoadFromAssemblyPath(Path.GetFullPath(assemblyPath));
+	}
+
 	private static void PreloadAssemblies()
 	{
-		_monkeyLoaderWrapperAsm = Assembly.LoadFrom(_monkeyLoaderWrapperPath.FullName);
+		_monkeyLoaderWrapperAsm = LoadFromBepInExContext(_monkeyLoaderWrapperPath.FullName);
 		var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
 		foreach (var file in Directory.GetFiles("MonkeyLoader").Where(f => f.EndsWith(".dll")))
 		{
 			var name = Path.GetFileNameWithoutExtension(file);
 			if (loadedAssemblies.Any(a => a.GetName().Name == name)) continue;
 			Plugin.Log!.LogDebug($"Preloading: {name}");
-			Assembly.LoadFrom(file);
+			LoadFromBepInExContext(file);
 		}
 
 		foreach (var alc in AssemblyLoadContext.All)
